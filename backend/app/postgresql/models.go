@@ -8,9 +8,36 @@ import (
 	"database/sql"
 )
 
+type Franchise struct {
+	Franchid   string
+	Franchname sql.NullString
+	Active     sql.NullString
+	Naassoc    sql.NullString
+}
+
 type Player struct {
-	Playerid  string
-	Birthyear sql.NullInt32
-	Namefirst sql.NullString
-	Namelast  sql.NullString
+	Playerid     string
+	Birthyear    sql.NullInt32
+	Birthmonth   sql.NullInt32
+	Birthday     sql.NullInt32
+	Birthcountry sql.NullString
+	Birthstate   sql.NullString
+	Birthcity    sql.NullString
+	Deathyear    sql.NullInt32
+	Deathmonth   sql.NullInt32
+	Deathday     sql.NullInt32
+	Deathcountry sql.NullString
+	Deathstate   sql.NullString
+	Deathcity    sql.NullString
+	Namefirst    sql.NullString
+	Namelast     sql.NullString
+	Namegiven    sql.NullString
+	Weight       sql.NullInt32
+	Height       sql.NullInt32
+	Bats         sql.NullString
+	Throws       sql.NullString
+	Debut        sql.NullTime
+	Finalgame    sql.NullTime
+	Retroid      sql.NullString
+	Bbrefid      sql.NullString
 }

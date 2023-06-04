@@ -10,52 +10,194 @@ import (
 	"database/sql"
 )
 
+const createFranchise = `-- name: CreateFranchise :one
+INSERT INTO franchises (
+  franchID,
+  franchName,
+  active,
+  NAassoc
+) VALUES ($1, $2, $3, $4) 
+RETURNING franchid, franchname, active, naassoc
+`
+
+type CreateFranchiseParams struct {
+	Franchid   string
+	Franchname sql.NullString
+	Active     sql.NullString
+	Naassoc    sql.NullString
+}
+
+func (q *Queries) CreateFranchise(ctx context.Context, arg CreateFranchiseParams) (Franchise, error) {
+	row := q.db.QueryRowContext(ctx, createFranchise,
+		arg.Franchid,
+		arg.Franchname,
+		arg.Active,
+		arg.Naassoc,
+	)
+	var i Franchise
+	err := row.Scan(
+		&i.Franchid,
+		&i.Franchname,
+		&i.Active,
+		&i.Naassoc,
+	)
+	return i, err
+}
+
 const createPlayer = `-- name: CreatePlayer :one
 INSERT INTO players (
-  playerID, birthYear, nameFirst, nameLast
-) VALUES (
-  $1, $2, $3, $4
-)
-RETURNING playerid, birthyear, namefirst, namelast
+  playerID,
+  birthYear,
+  birthMonth,
+  birthDay,
+  birthCountry,
+  birthState,
+  birthCity,
+  deathYear,
+  deathMonth,
+  deathDay,
+  deathCountry,
+  deathState,
+  deathCity,
+  nameFirst, 
+  nameLast,
+  nameGiven,
+  weight,
+  height,
+  bats,
+  throws,
+  debut,
+  finalGame,
+  retroID,
+  bbrefID
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+RETURNING playerid, birthyear, birthmonth, birthday, birthcountry, birthstate, birthcity, deathyear, deathmonth, deathday, deathcountry, deathstate, deathcity, namefirst, namelast, namegiven, weight, height, bats, throws, debut, finalgame, retroid, bbrefid
 `
 
 type CreatePlayerParams struct {
-	Playerid  string
-	Birthyear sql.NullInt32
-	Namefirst sql.NullString
-	Namelast  sql.NullString
+	Playerid     string
+	Birthyear    sql.NullInt32
+	Birthmonth   sql.NullInt32
+	Birthday     sql.NullInt32
+	Birthcountry sql.NullString
+	Birthstate   sql.NullString
+	Birthcity    sql.NullString
+	Deathyear    sql.NullInt32
+	Deathmonth   sql.NullInt32
+	Deathday     sql.NullInt32
+	Deathcountry sql.NullString
+	Deathstate   sql.NullString
+	Deathcity    sql.NullString
+	Namefirst    sql.NullString
+	Namelast     sql.NullString
+	Namegiven    sql.NullString
+	Weight       sql.NullInt32
+	Height       sql.NullInt32
+	Bats         sql.NullString
+	Throws       sql.NullString
+	Debut        sql.NullTime
+	Finalgame    sql.NullTime
+	Retroid      sql.NullString
+	Bbrefid      sql.NullString
 }
 
 func (q *Queries) CreatePlayer(ctx context.Context, arg CreatePlayerParams) (Player, error) {
 	row := q.db.QueryRowContext(ctx, createPlayer,
 		arg.Playerid,
 		arg.Birthyear,
+		arg.Birthmonth,
+		arg.Birthday,
+		arg.Birthcountry,
+		arg.Birthstate,
+		arg.Birthcity,
+		arg.Deathyear,
+		arg.Deathmonth,
+		arg.Deathday,
+		arg.Deathcountry,
+		arg.Deathstate,
+		arg.Deathcity,
 		arg.Namefirst,
 		arg.Namelast,
+		arg.Namegiven,
+		arg.Weight,
+		arg.Height,
+		arg.Bats,
+		arg.Throws,
+		arg.Debut,
+		arg.Finalgame,
+		arg.Retroid,
+		arg.Bbrefid,
 	)
 	var i Player
 	err := row.Scan(
 		&i.Playerid,
 		&i.Birthyear,
+		&i.Birthmonth,
+		&i.Birthday,
+		&i.Birthcountry,
+		&i.Birthstate,
+		&i.Birthcity,
+		&i.Deathyear,
+		&i.Deathmonth,
+		&i.Deathday,
+		&i.Deathcountry,
+		&i.Deathstate,
+		&i.Deathcity,
 		&i.Namefirst,
 		&i.Namelast,
+		&i.Namegiven,
+		&i.Weight,
+		&i.Height,
+		&i.Bats,
+		&i.Throws,
+		&i.Debut,
+		&i.Finalgame,
+		&i.Retroid,
+		&i.Bbrefid,
 	)
 	return i, err
 }
 
-const deleteAuthor = `-- name: DeleteAuthor :exec
+const deleteFranchise = `-- name: DeleteFranchise :exec
+DELETE FROM franchises
+WHERE franchID = $1
+`
+
+func (q *Queries) DeleteFranchise(ctx context.Context, franchid string) error {
+	_, err := q.db.ExecContext(ctx, deleteFranchise, franchid)
+	return err
+}
+
+const deletePlayer = `-- name: DeletePlayer :exec
 DELETE FROM players
 WHERE playerID = $1
 `
 
-func (q *Queries) DeleteAuthor(ctx context.Context, playerid string) error {
-	_, err := q.db.ExecContext(ctx, deleteAuthor, playerid)
+func (q *Queries) DeletePlayer(ctx context.Context, playerid string) error {
+	_, err := q.db.ExecContext(ctx, deletePlayer, playerid)
 	return err
+}
+
+const getFranchise = `-- name: GetFranchise :one
+SELECT franchid, franchname, active, naassoc FROM franchises
+WHERE franchID = $1 LIMIT 1
+`
+
+func (q *Queries) GetFranchise(ctx context.Context, franchid string) (Franchise, error) {
+	row := q.db.QueryRowContext(ctx, getFranchise, franchid)
+	var i Franchise
+	err := row.Scan(
+		&i.Franchid,
+		&i.Franchname,
+		&i.Active,
+		&i.Naassoc,
+	)
+	return i, err
 }
 
 const getPlayer = `-- name: GetPlayer :one
 
-SELECT playerid, birthyear, namefirst, namelast FROM players
+SELECT playerid, birthyear, birthmonth, birthday, birthcountry, birthstate, birthcity, deathyear, deathmonth, deathday, deathcountry, deathstate, deathcity, namefirst, namelast, namegiven, weight, height, bats, throws, debut, finalgame, retroid, bbrefid FROM players
 WHERE playerID = $1 LIMIT 1
 `
 
@@ -66,14 +208,67 @@ func (q *Queries) GetPlayer(ctx context.Context, playerid string) (Player, error
 	err := row.Scan(
 		&i.Playerid,
 		&i.Birthyear,
+		&i.Birthmonth,
+		&i.Birthday,
+		&i.Birthcountry,
+		&i.Birthstate,
+		&i.Birthcity,
+		&i.Deathyear,
+		&i.Deathmonth,
+		&i.Deathday,
+		&i.Deathcountry,
+		&i.Deathstate,
+		&i.Deathcity,
 		&i.Namefirst,
 		&i.Namelast,
+		&i.Namegiven,
+		&i.Weight,
+		&i.Height,
+		&i.Bats,
+		&i.Throws,
+		&i.Debut,
+		&i.Finalgame,
+		&i.Retroid,
+		&i.Bbrefid,
 	)
 	return i, err
 }
 
+const listFranchises = `-- name: ListFranchises :many
+SELECT franchid, franchname, active, naassoc FROM franchises
+ORDER BY franchID
+`
+
+func (q *Queries) ListFranchises(ctx context.Context) ([]Franchise, error) {
+	rows, err := q.db.QueryContext(ctx, listFranchises)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Franchise
+	for rows.Next() {
+		var i Franchise
+		if err := rows.Scan(
+			&i.Franchid,
+			&i.Franchname,
+			&i.Active,
+			&i.Naassoc,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlayers = `-- name: ListPlayers :many
-SELECT playerid, birthyear, namefirst, namelast FROM players
+SELECT playerid, birthyear, birthmonth, birthday, birthcountry, birthstate, birthcity, deathyear, deathmonth, deathday, deathcountry, deathstate, deathcity, namefirst, namelast, namegiven, weight, height, bats, throws, debut, finalgame, retroid, bbrefid FROM players
 ORDER BY playerID
 `
 
@@ -89,8 +284,28 @@ func (q *Queries) ListPlayers(ctx context.Context) ([]Player, error) {
 		if err := rows.Scan(
 			&i.Playerid,
 			&i.Birthyear,
+			&i.Birthmonth,
+			&i.Birthday,
+			&i.Birthcountry,
+			&i.Birthstate,
+			&i.Birthcity,
+			&i.Deathyear,
+			&i.Deathmonth,
+			&i.Deathday,
+			&i.Deathcountry,
+			&i.Deathstate,
+			&i.Deathcity,
 			&i.Namefirst,
 			&i.Namelast,
+			&i.Namegiven,
+			&i.Weight,
+			&i.Height,
+			&i.Bats,
+			&i.Throws,
+			&i.Debut,
+			&i.Finalgame,
+			&i.Retroid,
+			&i.Bbrefid,
 		); err != nil {
 			return nil, err
 		}

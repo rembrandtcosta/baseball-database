@@ -21,8 +21,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-
-
 func Run(ctx context.Context) error {
 	log.Print("Prepare db...")
 
@@ -36,7 +34,24 @@ func Run(ctx context.Context) error {
 		log.Fatal(err)
 	}
 
-	parsePlayers(ctx, db)
+	models := make([]interface{}, 0)
+
+	model := getModel(getModelReflection(p.CreatePlayerParams{}))
+	models = appendStruct(models, []interface{}{model})
+	model = getModel(getModelReflection(p.CreateFranchiseParams{}))
+	models = appendStruct(models, []interface{}{model})
+
+	locations := []string{"./baseballdatabank/core/People.csv", "./baseballdatabank/core/TeamsFranchises.csv"}
+
+	for i := 0; i < len(locations); i++ {
+		file, err := os.Open(locations[i])
+		if err != nil {
+			log.Println(err)
+		}
+		go parseTable(ctx, db, models[i], file)
+	}
+
+
 
 	log.Print("Listening 8000")
 	r := mux.NewRouter()
@@ -47,87 +62,94 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
-func parsePlayers(ctx context.Context, db *sql.DB) error {
+func appendStruct(slice []interface{}, elem []interface{}) []interface{} {
+	j := len(slice) + 1
+	newSlice := make([]interface{}, j)
+	for i, e := range slice {
+		newSlice[i] = e
+	}
+	for _, e := range elem {
+		newSlice[j-1] = e
+	}
+	return newSlice 
+}
+
+func createModel(q *p.Queries, ctx context.Context, model interface{}) {
+	switch model.(type) {
+	case p.CreatePlayerParams:
+		q.CreatePlayer(ctx, model.(p.CreatePlayerParams))
+	case p.CreateFranchiseParams:
+		log.Println(model)
+		q.CreateFranchise(ctx, model.(p.CreateFranchiseParams))
+	}
+}
+
+func getModel(model reflect.Value) interface{} {
+	switch model.Interface().(type) {
+	case p.CreatePlayerParams:
+		m := model.Interface().(p.CreatePlayerParams)
+		return m
+	case p.CreateFranchiseParams:
+		m := model.Interface().(p.CreateFranchiseParams)
+		return m
+	}
+	return model
+}
+
+func getModelReflection(model interface{}) reflect.Value {
+  switch model.(type) {
+	case p.CreatePlayerParams:
+		m := model.(p.CreatePlayerParams)
+		return reflect.ValueOf(&m).Elem()
+	case p.CreateFranchiseParams:
+		m := model.(p.CreateFranchiseParams)
+		return reflect.ValueOf(&m).Elem()
+	}
+  return reflect.ValueOf(&model).Elem() 
+}
+
+func parseTable(ctx context.Context, db *sql.DB, model interface{}, file *os.File) error {
 	defer db.Close()
 
 	q := p.New(db)
 
-	
-	playersTypes := make(map[string]string)
-
-	playersTypes["playerID"] = "VARCHAR"
-	playersTypes["birthYear"] = "INTEGER"
-	playersTypes["nameFirst"] = "VARCHAR"
-	playersTypes["nameLast"] = "VARCHAR"
-
-	file, err := os.Open("./baseballdatabank/core/People.csv")
-	if err != nil {
-		log.Println(err)
-	}
 
 	reader := csv.NewReader(file)
-	records, _ := reader.ReadAll()
-
-	columnsRow := records[0]
-
-	table := ""
-	tableValues := ""
-	for _, columnName := range columnsRow {
-		columnType, ok := playersTypes[columnName]
-		if ok {
-			if table != "" {
-				table += ", " 
-				tableValues += ", "
-			}
-			table += columnName + " " + columnType 
-			tableValues += columnName
-		}
+	records, err := reader.ReadAll()
+	if err != nil {
+		return err
 	}
 
-	log.Println(table)
+	rows := records[1:]
 
-	_, err = q.CreatePlayer(ctx, p.CreatePlayerParams{
-		Playerid: "teste01",
-		Birthyear:  sql.NullInt32{Int32: 2001, Valid: true},
-		Namefirst: sql.NullString{String: "Test", Valid: true},
-		Namelast: sql.NullString{String: "Teste", Valid: true},
-	})
+	s := getModelReflection(model)
+	log.Println(s)
 
-	playerRows := records[1:]
-
-	for _, playerRow := range playerRows {
-	  cntField := 0
-		player := p.CreatePlayerParams{}
-		for i, playerCell := range playerRow {
-			columnName := columnsRow[i]
-		  _, ok := playersTypes[columnName]
-			if (ok) {
-				//field := strings.Title(columnName)
-				
-				s := reflect.ValueOf(&player).Elem()
-				log.Println(cntField)
-				typeField := s.Field(cntField).Type()
-
-				if typeField.String() == "string" {
-					s.Field(cntField).SetString(playerCell)
-				} else if typeField.String() == "sql.NullInt32" {
-					val, _ := strconv.Atoi(playerCell)
-					s.Field(cntField).Set(
-						reflect.ValueOf(sql.NullInt32{Int32: int32(val),  Valid: true}))
-				} else if typeField.String() == "sql.NullString" {
-					s.Field(cntField).Set(reflect.ValueOf(sql.NullString{String: playerCell, Valid: true}))
-				}
-
-				cntField++
-			}
+	for _, row := range rows {
+		log.Println(row)
+		for i, cell := range row {
+			typeField := s.Field(i).Type()
+			setFieldWithType(s, i, typeField.String(), cell)
 		}
-		_, err = q.CreatePlayer(ctx, player)	
-		/*if _, err := db.Exec("INSERT INTO players" +  " VALUES (" + values + ")"); err != nil {
-			return err
-		}*/
+		model = getModel(s)
+		createModel(q, ctx, model)
 	}
 
 	return nil
+}
+
+func setFieldWithType(structure reflect.Value, index int, typeField string, val string) {
+	if typeField == "string" {
+		structure.Field(index).SetString(val)
+	} else if typeField == "sql.NullInt32" {
+		s, _ := strconv.Atoi(val)
+		structure.Field(index).Set(reflect.ValueOf(sql.NullInt32{Int32: int32(s), Valid: true}))
+	} else if typeField == "sql.NullString" {
+		structure.Field(index).Set(reflect.ValueOf(sql.NullString{String: val, Valid: true}))
+	} else if typeField == "sql.NullTime" {
+		s, _ := time.Parse("2006-01-02", val)
+		structure.Field(index).Set(reflect.ValueOf(sql.NullTime{Time: s, Valid: true}))
+	}
 }
 
 func prepare(db *sql.DB) error {
@@ -153,5 +175,3 @@ func prepare(db *sql.DB) error {
 	}
 	return nil
 }
-
-

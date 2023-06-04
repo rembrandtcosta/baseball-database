@@ -1,7 +1,7 @@
 {
   "version": "1",
   "packages": [{
-    "schema": "schema.sql",
+    "schema": "init.sql",
     "queries": "query.sql",
     "name": "models",
     "path": "./app/postgresql"
